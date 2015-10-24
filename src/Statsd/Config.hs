@@ -6,7 +6,10 @@ import Data.Version (showVersion)
 
 
 data Options = Options
-    { port :: Integer }
+    { port :: Integer,
+      flushInterval :: Int,
+      prefixStats :: String
+    }
 
 optParser :: Parser Options
 optParser = Options
@@ -16,6 +19,18 @@ optParser = Options
             <> long "port"
             <> metavar "PORT"
             <> help "Port number to listen on" )
+        <*> option auto
+            ( value 5000000
+            <> short 'f'
+            <> long "flush"
+            <> metavar "INTERVAL"
+            <> help "Number of microseconds to wait between flushes" )
+        <*> option auto
+            ( value ""
+            <> short 'p'
+            <> long "prefixStats"
+            <> metavar "PREFIX"
+            <> help "" )
         <**> infoOption (showVersion version)
             ( short 'v'
             <> long "version"

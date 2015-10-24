@@ -6,7 +6,7 @@ homepage:            http://github.com/ant1441/statsd#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Adam Hodgen
-maintainer:          adam@hodgen.uk
+maintainer:          ant1441@users.noreply.github.com
 copyright:           2010 Adam Hodgen
 category:            Web
 build-type:          Simple
@@ -15,13 +15,14 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Statsd.Config, Statsd.Metrics, Statsd.Parser
+  exposed-modules:     Statsd.Config, Statsd.Metrics, Statsd.Parser, Statsd.Datastore, Statsd.Utils
   build-depends:
                        attoparsec,
                        base,
                        bytestring,
                        network,
-                       optparse-applicative
+                       optparse-applicative,
+                       stm
   other-modules:       Paths_statsd
   default-language:    Haskell2010
 
@@ -30,6 +31,7 @@ executable statsd
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:
+                       async,
                        base,
                        bytestring,
                        network,
@@ -38,14 +40,14 @@ executable statsd
 
 test-suite statsd-test
   type:                exitcode-stdio-1.0
-  exposed-modules:     Statsd.Test.Parser
-  hs-source-dirs:      test
+  hs-source-dirs:      test, test/Statsd, test/Statsd/Test
   main-is:             Spec.hs
   build-depends:
                        base,
                        bytestring,
                        hspec,
                        hspec-attoparsec,
+                       QuickCheck,
                        statsd
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   default-language:    Haskell2010

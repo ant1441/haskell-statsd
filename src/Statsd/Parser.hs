@@ -44,7 +44,7 @@ parseMetricsMessage :: MetricsMessage -> Metric
 parseMetricsMessage (MetricMsg name value "c" (Just extra)) =
     Counter name value extra
 parseMetricsMessage (MetricMsg name value "c" Nothing) =
-    Counter name value 0.1
+    Counter name value 1
 
 parseMetricsMessage (MetricMsg name value "ms" _) =
     Timer name value
@@ -63,10 +63,10 @@ hGetMetricsMessage handle = go S.empty
             parseResult <- parseWith readMore metricParser rest
             case parseResult of
                 Fail extra _ s -> error $ "TODO Fail: " ++ s ++ "[" ++ show extra ++ "]"
-                Partial {}     -> error "TODO Partial"
+                Partial resumer -> error "TODO Partial"
                 Done extra result -> if null extra
-                                        then error $ "extra data: " ++ show extra
-                                        else return result
+                                        then return result
+                                        else error $ "extra data: " ++ show extra
 
         readMore = S.hGetSome handle (4 * 1024)
 
@@ -101,6 +101,7 @@ partMetricParser = do
                 then fail "extra data on non counter"
                 else do
                     pipe
+                    at
                     extra <- double
                     return $ MetricMsg name value metricType (Just extra)
 
@@ -120,6 +121,16 @@ parseType :: Parser Metric
 parseType = (string "c"  >> return Counter) <|>
             (string "ms" >> return Gauge)
 -}
+
+-- | Parse a single at @@@ character.
+at :: Parser Char
+at = char '@'
+
+isAt :: Char -> Bool
+isAt c = c == '@'
+
+notAt :: Char -> Bool
+notAt = not . isColon
 
 -- | Parse a single colon @:@ character.
 colon :: Parser Char
