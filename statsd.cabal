@@ -15,7 +15,12 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Statsd.Config, Statsd.Metrics, Statsd.Parser, Statsd.Datastore, Statsd.Utils
+  exposed-modules:
+                       Statsd.Config,
+                       Statsd.Metrics,
+                       Statsd.Parser,
+                       Statsd.Datastore,
+                       Statsd.Utils
   build-depends:
                        attoparsec,
                        base,
@@ -42,6 +47,9 @@ test-suite statsd-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test, test/Statsd, test/Statsd/Test
   main-is:             Spec.hs
+  other-modules:
+                       Statsd.Test.Parser,
+                       Statsd.Test.Utils
   build-depends:
                        base,
                        bytestring,

@@ -1,17 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
-{- |
- - Module      :  $Header$
- - Copyright   :  (c) Adam Hodgen
- - License     :  <license>
- -
- - Stability   :  experimental
- - Portability :  unknown
- -
- - Parser for incoming StatsD metrics.
- - -}
+{-# OPTIONS_HADDOCK prune, ignore-exports #-}
 
+-- |
+-- Module      :  $Header$
+-- Copyright   :  (c) Adam Hodgen
+-- License     :  <license>
+--
+-- Stability   :  experimental
+-- Portability :  unknown
+--
+-- Parser for incoming StatsD metrics.
 
--- module Statsd.Parser (metricProcessor) where
+--module Statsd.Parser (metricProcessor) where
 module Statsd.Parser where
 
 import Control.Applicative ((<|>))
@@ -24,39 +24,15 @@ import Data.Word (Word8)
 import Prelude hiding (takeWhile, null)
 import System.IO (Handle)
 
-import Statsd.Metrics (Name, Value, SampleRate, Metric(..))
-
--- | Type to hold the state after parsing a metric message.
-data MetricsMessage = MetricMsg
-                        { metricName :: Name,
-                          metricValue :: Value,
-                          metricType :: ByteString,
-                          metricExtra :: Maybe SampleRate }
-                    deriving (Eq, Show)
+import Statsd.Metrics (Metric(Metric), MetricType(..))
 
 metricProcessor :: Handle -> IO (Either String [Metric])
 metricProcessor handle = do
     messages <- hGetMetricsMessage handle
-    return $ Right $ fmap parseMetricsMessage messages
+    return $ Right messages
 
--- | Turn a 'MetricsMessage' into a 'Metric'
-parseMetricsMessage :: MetricsMessage -> Metric
-parseMetricsMessage (MetricMsg name value "c" (Just extra)) =
-    Counter name value extra
-parseMetricsMessage (MetricMsg name value "c" Nothing) =
-    Counter name value 1
-
-parseMetricsMessage (MetricMsg name value "ms" _) =
-    Timer name value
-parseMetricsMessage (MetricMsg name value "g" _) =
-    Gauge name value
-parseMetricsMessage (MetricMsg name value "h" _) =
-    Histogram name value
-parseMetricsMessage (MetricMsg name value "m" _) =
-    Meter name value
-
--- | Receive data from the @handle@, return a list of 'MetricsMessage's
-hGetMetricsMessage :: Handle -> IO [MetricsMessage]
+-- | Receive data from the @handle@, return a list of Metric's
+hGetMetricsMessage :: Handle -> IO [Metric]
 hGetMetricsMessage handle = go S.empty
     where
         go rest = do
@@ -71,7 +47,7 @@ hGetMetricsMessage handle = go S.empty
         readMore = S.hGetSome handle (4 * 1024)
 
 -- | Parse any number of metrics
-metricParser :: Parser [MetricsMessage]
+metricParser :: Parser [Metric]
 metricParser = do
     singleMetric <- partMetricParser
     maybeEndOfLine -- need EOL, not EOF between
@@ -84,7 +60,7 @@ metricParser = do
 
 -- <metric_name>:<value>|<type>|<extra>
 -- | Parse a single statsd metric, not taking the line break at the end.
-partMetricParser :: Parser MetricsMessage
+partMetricParser :: Parser Metric
 partMetricParser = do
     name <- takeWhile notColon
     colon
@@ -94,35 +70,30 @@ partMetricParser = do
     -- Might be a pipe and an extra, or a EOL
     next <- peekChar
     if fromMaybe ' ' next /= '|'
-        then return $ MetricMsg name value metricType Nothing
+        then return $ Metric metricType name value Nothing
         else
-            if metricType /= "c"
+            if metricType /= Counter
                 -- Extra data only on a counter
                 then fail "extra data on non counter"
                 else do
                     pipe
                     at
                     extra <- double
-                    return $ MetricMsg name value metricType (Just extra)
-
--- Parsers
+                    return $ Metric metricType name value (Just extra)
 
 -- | Parse a statsd metric type
-parseType :: Parser ByteString
-parseType = string "c" <|>
-            string "ms" <|>
-            string "g" <|>
-            string "h" <|>
-            string "m" <?>
-            "metricType"
-{-
--- Maybe like this? Types might not like it
-parseType :: Parser Metric
-parseType = (string "c"  >> return Counter) <|>
-            (string "ms" >> return Gauge)
--}
+parseType :: Parser MetricType
+parseType = (string "c"  >> return Counter)   <|>
+            (string "ms" >> return Timer)     <|>
+            (string "g"  >> return Gauge)     <|>
+            (string "h"  >> return Histogram) <|>
+            (string "m"  >> return Meter)
+            <?> "metricType"
 
--- | Parse a single at @@@ character.
+
+-- * Simple Parsers
+
+-- | Parse a single at @\@@ character.
 at :: Parser Char
 at = char '@'
 
@@ -142,7 +113,7 @@ isColon c = c == ':'
 notColon :: Char -> Bool
 notColon = not . isColon
 
--- | Parse a single pipe (|) character.
+-- | Parse a single pipe @|@ character.
 pipe :: Parser Char
 pipe = char '|'
 
