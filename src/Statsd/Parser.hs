@@ -11,8 +11,7 @@
 --
 -- Parser for incoming StatsD metrics.
 
---module Statsd.Parser (metricProcessor) where
-module Statsd.Parser where
+module Statsd.Parser (metricProcessor, metricParser) where
 
 import Control.Applicative ((<|>))
 import Control.Monad (unless)

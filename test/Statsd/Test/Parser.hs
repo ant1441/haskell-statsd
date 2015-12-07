@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Statsd.Test.Parser (metricSpec) where
+module Statsd.Test.Parser (parserSpec) where
 
 import Test.Hspec
 import Test.Hspec.Attoparsec
@@ -9,8 +9,8 @@ import Data.ByteString.Char8 (ByteString)
 import Statsd.Parser
 import Statsd.Metrics
 
-metricSpec :: Spec
-metricSpec = do
+parserSpec :: Spec
+parserSpec = do
     describe "metric parser - success cases" $ do
         it "succesfully parses a gauge" $
             ("value:1|g\n" :: ByteString) ~> metricParser `shouldParse` [Metric Gauge "value" 1 Nothing]

@@ -2,30 +2,46 @@ module Statsd.Datastore where
 
 import Control.Concurrent.STM (atomically, newTMVar, putTMVar, takeTMVar, STM, TMVar)
 
-import Statsd.Metrics (Metric)
+import Statsd.Metrics
 
-type DataStore = TMVar [Metric]
+type Datastore' = (Gauges, Counters, Timers, Histograms, Meters)
+type Datastore = TMVar Datastore'
 
-newDatastore :: STM DataStore
-newDatastore = newTMVar []
+newDatastore :: Datastore'
+newDatastore = ([], [], [], [], [])
 
-newDatastoreIO :: IO DataStore
-newDatastoreIO = atomically newDatastore
+newDatastoreSTM :: STM Datastore
+newDatastoreSTM = newTMVar newDatastore
 
-storeMetrics :: DataStore -> [Metric] -> STM ()
-storeMetrics datastore metrics = do
+newDatastoreIO :: IO Datastore
+newDatastoreIO = atomically newDatastoreSTM
+
+storeMetrics :: [Metric] -> Datastore' -> Datastore'
+storeMetrics [] datastore = datastore
+storeMetrics (m:ms) (gauges, counters, timers, histograms, meters) =
+    case metricType m of
+        Gauge       -> storeMetrics ms (m:gauges, counters, timers, histograms, meters)
+        Counter     -> storeMetrics ms (gauges, m:counters, timers, histograms, meters)
+        Timer       -> storeMetrics ms (gauges, counters, m:timers, histograms, meters)
+        Histogram   -> storeMetrics ms (gauges, counters, timers, m:histograms, meters)
+        Meter       -> storeMetrics ms (gauges, counters, timers, histograms, m:meters)
+
+storeMetricsSTM :: Datastore -> [Metric] -> STM ()
+storeMetricsSTM datastore metrics = do
     prevMetrics <- takeTMVar datastore
-    putTMVar datastore (prevMetrics ++ metrics)
+    let newMetrics = storeMetrics metrics prevMetrics
+    putTMVar datastore newMetrics
 
-storeMetricsIO :: DataStore -> [Metric] -> IO ()
-storeMetricsIO datastore = atomically . storeMetrics datastore
+storeMetricsIO :: Datastore -> [Metric] -> IO ()
+storeMetricsIO datastore = atomically . storeMetricsSTM datastore
 
-withDatastoreMetricsIO :: DataStore -> ([Metric] -> ([Metric], [Metric])) -> IO [Metric]
+withDatastoreMetricsIO :: Datastore -> ([Metric] -> ([Metric], [Metric])) -> IO [Metric]
 withDatastoreMetricsIO datastore action = atomically $ withDatastoreMetrics datastore action
 
-withDatastoreMetrics :: DataStore -> ([Metric] -> ([Metric], [Metric])) -> STM [Metric]
+withDatastoreMetrics :: Datastore -> ([Metric] -> ([Metric], [Metric])) -> STM [Metric]
 withDatastoreMetrics datastore action = do
     metrics <- takeTMVar datastore
-    let (handledMetrics, unhandledMetrics) = action metrics
-    putTMVar datastore unhandledMetrics
-    return handledMetrics
+    undefined
+    --let (handledMetrics, unhandledMetrics) = action metrics
+    --putTMVar datastore unhandledMetrics
+    --return handledMetrics

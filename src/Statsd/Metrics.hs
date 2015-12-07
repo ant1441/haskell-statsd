@@ -9,7 +9,8 @@
 --
 -- Metric types for StatsD.
 
-module Statsd.Metrics (Metric(Metric), MetricType(..)) where
+module Statsd.Metrics where
+--module Statsd.Metrics (Metric(Metric), MetricType(..), Gauges, Counters, Timers, Histograms, Meters) where
 
 import Data.ByteString.Char8 (ByteString)
 
@@ -46,9 +47,41 @@ data MetricType =
                     -- May be thought of as an increment only timer.
     deriving (Eq, Show, Enum)
 
+-- * Helpers
+type Gauges = [Metric]
+type Counters = [Metric]
+type Timers = [Metric]
+type Histograms = [Metric]
+type Meters = [Metric]
+
 -- | Helper function to get the sample for a Counter
 sampleRate :: Metric -> SampleRate
 sampleRate (Metric Counter _ _ e) = e
 sampleRate _ = Nothing
 
-type Storage = [Metric]
+-- * Functions to clear a list of each Metric
+
+-- TODO:
+-- Look at break, span (Prelude), partition (Data.List)
+
+-- | Clear the counters
+clearCounter :: Bool -> Counters -> (Counters, Counters)
+clearCounter False counters = (counters, [])
+clearCounter True counters = ([], [])
+
+-- | Clear the timers
+clearTimers :: Bool -> Timers -> (Timers, Timers)
+clearTimers False timers = (timers, [])
+clearTimers True timers = ([], [])
+
+-- | Clear the sets
+{- TYPE?
+clearSets :: Bool -> undefined -> (undefined, undefined)
+clearSets False sets = (sets, [])
+clearSets True sets = ([], [])
+-}
+
+-- | Clear the guages
+clearGauges :: Bool -> Gauges -> (Gauges, Gauges)
+clearGauges False gauges = (gauges, [])
+clearGauges True gauges = ([], [])

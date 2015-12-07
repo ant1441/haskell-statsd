@@ -5,25 +5,27 @@ import qualified Data.ByteString as S
 import Data.Either (lefts, rights)
 import Network (accept, listenOn, withSocketsDo, HostName, Socket, PortID (..), PortNumber)
 import System.IO (hClose, hPutStr, hSetBinaryMode, hSetBuffering, Handle, BufferMode(NoBuffering))
+import System.Log.Logger
 
 import Statsd.Config
 import Statsd.Datastore
 import Statsd.Metrics
 import Statsd.Parser
+import Statsd.Utils
 
 reportError :: Handle -> String -> IO ()
 reportError = hPutStr
 
-connectionHandler :: DataStore -> Handle -> HostName -> PortNumber -> IO ()
+connectionHandler :: Datastore -> Handle -> HostName -> PortNumber -> IO ()
 connectionHandler datastore handle hostname portNum = do
-    --putStrLn $ "Connection from " ++ hostname ++ "[" ++ show portNum ++ "]"
+    debugM "statsd" $ "Connection from " ++ hostname ++ "[" ++ show portNum ++ "]"
     eitherMetrics <- metricProcessor handle
     case eitherMetrics of
         Left error -> reportError handle error
         Right metrics -> storeMetricsIO datastore metrics
     hClose handle
 
-sockHandler :: DataStore -> Socket -> IO ()
+sockHandler :: Datastore -> Socket -> IO ()
 sockHandler datastore sock = do
     (handle, hostname, portNum) <- accept sock
     hSetBuffering handle NoBuffering
@@ -37,24 +39,28 @@ main = do
     database <- newDatastoreIO
     parseArgs $ start database
 
-start :: DataStore -> Options -> IO ()
+-- | Start all the tasks, and wait for their completion (forever)
+start :: Datastore -> Options -> IO ()
 start datastore options = do
+    configureLogging options
     l <- async $ startListner datastore options
     h <- async $ startHandler datastore options
     mapM_ wait [l, h]
 
-startListner :: DataStore -> Options -> IO ()
+-- | Start the network listener, and pass it onto the socket handler
+startListner :: Datastore -> Options -> IO ()
 startListner datastore options = withSocketsDo $ do
     let portNum = port options
     sock <- listenOn $ PortNumber $ fromInteger portNum
-    putStrLn $ "Listening on port " ++ show portNum
+    noticeM "statsd" $ "Listening on port " ++ show portNum
     sockHandler datastore sock
 
-startHandler :: DataStore -> Options -> IO ()
+-- | Start the datastore handler
+startHandler :: Datastore -> Options -> IO ()
 startHandler datastore options = do
-    putStrLn "Running datastore handler"
+    debugM "statsd" "Running datastore handler"
     handledMetrics <- withDatastoreMetricsIO datastore (\m -> do
         (m, []))
-    putStrLn $ "Handled " ++ show (length handledMetrics) ++ " metrics."
+    debugM "statsd" $ "Handled " ++ show (length handledMetrics) ++ " metrics."
     threadDelay $ flushInterval options
     startHandler datastore options
