@@ -100,7 +100,7 @@ isAt :: Char -> Bool
 isAt c = c == '@'
 
 notAt :: Char -> Bool
-notAt = not . isColon
+notAt = not . isAt
 
 -- | Parse a single colon @:@ character.
 colon :: Parser Char
