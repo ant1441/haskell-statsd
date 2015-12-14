@@ -14,59 +14,53 @@ import Statsd.Datastore
 datastoreSpec :: Spec
 datastoreSpec = do
     describe "Pure datastore functions" $ do
-        describe "storeMetrics" $ do
-            it "returns the same empty datastore when given no metrics" $
-                storeMetrics [] newDatastore `shouldBe` newDatastore
-            it "returns the same datastore when given no metrics" $
-                storeMetrics [] filledDatastoreC `shouldBe` filledDatastoreC
+        describe "storeMetric" $ do
             it "returns a filled datastore when given a single gauge" $
-                storeMetrics singleGauge newDatastore `shouldBe` filledDatastoreG
+                storeMetric singleGauge newDatastore `shouldBe` filledDatastoreG
             it "returns a filled datastore when given a single counter" $
-                storeMetrics singleCounter newDatastore `shouldBe` filledDatastoreC
+                storeMetric singleCounter newDatastore `shouldBe` filledDatastoreC
             it "returns a filled datastore when given a single timer" $
-                storeMetrics singleTimer newDatastore `shouldBe` filledDatastoreT
+                storeMetric singleTimer newDatastore `shouldBe` filledDatastoreT
             it "returns a filled datastore when given a single histogram" $
-                storeMetrics singleHistogram newDatastore `shouldBe` filledDatastoreH
+                storeMetric singleHistogram newDatastore `shouldBe` filledDatastoreH
             it "returns a filled datastore when given a single meter" $
-                storeMetrics singleMeter newDatastore `shouldBe` filledDatastoreM
-            it "returns a filled datastore when given multiple metrics" $
-                storeMetrics allMetrics newDatastore `shouldBe` filledDatastoreA
+                storeMetric singleMeter newDatastore `shouldBe` filledDatastoreM
 
 
 -- Vars
 
-singleGauge :: [Metric]
-singleGauge = [Metric Gauge "gauge.name" 1 Nothing]
+singleGauge :: Metric
+singleGauge = Metric Gauge "gauge.name" 1 Nothing
 
-singleCounter :: [Metric]
-singleCounter = [Metric Counter "counter.name" 1 (Just 1.0)]
+singleCounter :: Metric
+singleCounter = Metric Counter "counter.name" 1 (Just 1.0)
 
-singleTimer :: [Metric]
-singleTimer = [Metric Timer "timer.name" 1 Nothing]
+singleTimer :: Metric
+singleTimer = Metric Timer "timer.name" 1 Nothing
 
-singleHistogram :: [Metric]
-singleHistogram = [Metric Histogram "hist.name" 1 Nothing]
+singleHistogram :: Metric
+singleHistogram = Metric Histogram "hist.name" 1 Nothing
 
-singleMeter :: [Metric]
-singleMeter = [Metric Meter "meter.name" 1 Nothing]
+singleMeter :: Metric
+singleMeter = Metric Meter "meter.name" 1 Nothing
 
 allMetrics :: [Metric]
-allMetrics = singleGauge ++ singleCounter ++ singleTimer ++ singleHistogram ++ singleMeter
+allMetrics = [singleGauge, singleCounter, singleTimer, singleHistogram, singleMeter]
 
 filledDatastoreG :: Datastore'
-filledDatastoreG = (singleGauge, [], [], [], [])
+filledDatastoreG = ([singleGauge], [], [], [], [])
 
 filledDatastoreC :: Datastore'
-filledDatastoreC = ([], singleCounter, [], [], [])
+filledDatastoreC = ([], [singleCounter], [], [], [])
 
 filledDatastoreT :: Datastore'
-filledDatastoreT = ([], [], singleTimer, [], [])
+filledDatastoreT = ([], [], [singleTimer], [], [])
 
 filledDatastoreH :: Datastore'
-filledDatastoreH = ([], [], [], singleHistogram, [])
+filledDatastoreH = ([], [], [], [singleHistogram], [])
 
 filledDatastoreM :: Datastore'
-filledDatastoreM = ([], [], [], [], singleMeter)
+filledDatastoreM = ([], [], [], [], [singleMeter])
 
 filledDatastoreA :: Datastore'
-filledDatastoreA = (singleGauge, singleCounter, singleTimer, singleHistogram, singleMeter)
+filledDatastoreA = ([singleGauge], [singleCounter], [singleTimer], [singleHistogram], [singleMeter])

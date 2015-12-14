@@ -1,6 +1,9 @@
 module Statsd.Utils where
 
+import Control.Concurrent.Async
+import Control.Concurrent
 import Data.List (nubBy)
+import GHC.Conc (labelThread)
 import System.IO (stderr)
 import System.Log.Logger
 import System.Log.Formatter
@@ -34,3 +37,12 @@ configureLogging options = do
         setFormatter lh (simpleLogFormatter logFormat)
 
     updateGlobalLogger "" (setLevel DEBUG . setHandlers [fh, sh])
+
+async' :: String -> IO a -> IO (Async a)
+async' label act = async $ do
+    tid <- myThreadId
+    labelThread tid label
+    act
+
+waitForAll :: [Async a] -> IO ()
+waitForAll = mapM_ wait

@@ -11,39 +11,33 @@
 --
 -- Parser for incoming StatsD metrics.
 
-module Statsd.Parser (metricProcessor, metricParser) where
+--module Statsd.Parser (individualMetricConduit) where
+-- TODO Exports for test
+module Statsd.Parser (individualMetricConduit, metricParser) where
 
 import Control.Applicative ((<|>))
-import Control.Monad (unless)
-import Data.Attoparsec.ByteString.Char8
-import qualified Data.ByteString as S
-import Data.ByteString.Char8 (ByteString, null)
+import Data.Attoparsec.ByteString.Char8 ((<?>), char, choice, double, endOfInput, Parser, peekChar, string, takeWhile)
+import Data.ByteString.Char8 (ByteString)
 import Data.Maybe (fromMaybe, isNothing)
-import Data.Word (Word8)
 import Prelude hiding (takeWhile, null)
-import System.IO (Handle)
+
+import Data.Conduit (Conduit)
+import Data.Conduit.Attoparsec (ParseError, conduitParserEither, PositionRange)
 
 import Statsd.Metrics (Metric(Metric), MetricType(..))
 
-metricProcessor :: Handle -> IO (Either String [Metric])
-metricProcessor handle = do
-    messages <- hGetMetricsMessage handle
-    return $ Right messages
 
--- | Receive data from the @handle@, return a list of Metric's
-hGetMetricsMessage :: Handle -> IO [Metric]
-hGetMetricsMessage handle = go S.empty
-    where
-        go rest = do
-            parseResult <- parseWith readMore metricParser rest
-            case parseResult of
-                Fail extra _ s -> error $ "TODO Fail: " ++ s ++ "[" ++ show extra ++ "]"
-                Partial resumer -> error "TODO Partial"
-                Done extra result -> if null extra
-                                        then return result
-                                        else error $ "extra data: " ++ show extra
+metricConduit :: Monad m => Conduit ByteString m (Either ParseError (PositionRange, [Metric]))
+metricConduit = conduitParserEither metricParser
 
-        readMore = S.hGetSome handle (4 * 1024)
+individualMetricConduit :: Monad m => Conduit ByteString m (Either ParseError (PositionRange, Metric))
+individualMetricConduit = conduitParserEither individualMetricParser
+
+individualMetricParser :: Parser Metric
+individualMetricParser = do
+    singleMetric <- partMetricParser
+    maybeEndOfLine -- need EOL, not EOF between
+    return singleMetric
 
 -- | Parse any number of metrics
 metricParser :: Parser [Metric]

@@ -25,9 +25,12 @@ library
                        Statsd.Utils
 
   build-depends:
+                       async,
                        attoparsec,
                        base,
                        bytestring,
+                       conduit,
+                       conduit-extra,
                        filepath,
                        hslogger,
                        network,
@@ -44,9 +47,14 @@ executable statsd
                        async,
                        base,
                        bytestring,
+                       conduit,
+                       conduit-extra,
                        hslogger,
                        network,
-                       statsd
+                       resourcet,
+                       statsd,
+                       streaming-commons,
+                       transformers
   default-language:    Haskell2010
 
 test-suite statsd-test

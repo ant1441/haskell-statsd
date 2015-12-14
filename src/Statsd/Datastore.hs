@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 module Statsd.Datastore where
 
 import Control.Concurrent.STM (atomically, newTMVar, putTMVar, takeTMVar, STM, TMVar)
@@ -16,32 +17,39 @@ newDatastoreSTM = newTMVar newDatastore
 newDatastoreIO :: IO Datastore
 newDatastoreIO = atomically newDatastoreSTM
 
-storeMetrics :: [Metric] -> Datastore' -> Datastore'
-storeMetrics [] datastore = datastore
-storeMetrics (m:ms) (gauges, counters, timers, histograms, meters) =
+storeMetric :: Metric -> Datastore' -> Datastore'
+storeMetric m (gauges, counters, timers, histograms, meters) =
     case metricType m of
-        Gauge       -> storeMetrics ms (m:gauges, counters, timers, histograms, meters)
-        Counter     -> storeMetrics ms (gauges, m:counters, timers, histograms, meters)
-        Timer       -> storeMetrics ms (gauges, counters, m:timers, histograms, meters)
-        Histogram   -> storeMetrics ms (gauges, counters, timers, m:histograms, meters)
-        Meter       -> storeMetrics ms (gauges, counters, timers, histograms, m:meters)
+        Gauge       -> (m:gauges, counters, timers, histograms, meters)
+        Counter     -> (gauges, m:counters, timers, histograms, meters)
+        Timer       -> (gauges, counters, m:timers, histograms, meters)
+        Histogram   -> (gauges, counters, timers, m:histograms, meters)
+        Meter       -> (gauges, counters, timers, histograms, m:meters)
 
-storeMetricsSTM :: Datastore -> [Metric] -> STM ()
-storeMetricsSTM datastore metrics = do
+storeMetricSTM :: Datastore -> Metric -> STM ()
+storeMetricSTM datastore metrics = do
     prevMetrics <- takeTMVar datastore
-    let newMetrics = storeMetrics metrics prevMetrics
+    let newMetrics = storeMetric metrics prevMetrics
     putTMVar datastore newMetrics
 
 storeMetricsIO :: Datastore -> [Metric] -> IO ()
-storeMetricsIO datastore = atomically . storeMetricsSTM datastore
+storeMetricsIO = mapM_ . storeMetricIO
 
-withDatastoreMetricsIO :: Datastore -> (Datastore' -> ([a], Datastore')) -> IO [a]
+storeMetricIO :: Datastore -> Metric -> IO ()
+storeMetricIO datastore  = atomically . storeMetricSTM datastore
+
+withDatastoreMetricsIO :: Datastore -> (Datastore' -> (Datastore', Datastore')) -> IO Datastore'
 withDatastoreMetricsIO datastore action = atomically $ withDatastoreMetrics datastore action
 
-withDatastoreMetrics :: Datastore -> (Datastore' -> ([a], Datastore')) -> STM [a]
+withDatastoreMetrics :: Datastore -> (Datastore' -> (Datastore', Datastore')) -> STM Datastore'
 withDatastoreMetrics datastore action = do
     metrics <- takeTMVar datastore
     -- Perform the action on the metrics, returning a tuple of handled, unhandled metrics
+    -- TODO: Should I make this strict to ensure flushing happens right now?
     let (handledMetrics, unhandledMetrics) = action metrics
+    -- BUG: if action returns (_, error "_"), this hangs, why?
     putTMVar datastore unhandledMetrics
     return handledMetrics
+
+datastoreToList :: Datastore' -> [Metric]
+datastoreToList (g, c, t, h, m) = g ++ c ++ t ++ h ++ m
