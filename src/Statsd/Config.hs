@@ -35,7 +35,6 @@ optParser = Options
             <> help "Number of microseconds to wait between flushes" )
         <*> strOption
             ( value ""
-            <> short 'p'
             <> long "prefixStats"
             <> metavar "PREFIX"
             <> help "The prefix to add to all stats" )
