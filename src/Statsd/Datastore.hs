@@ -35,13 +35,13 @@ storeMetricsSTM datastore metrics = do
 storeMetricsIO :: Datastore -> [Metric] -> IO ()
 storeMetricsIO datastore = atomically . storeMetricsSTM datastore
 
-withDatastoreMetricsIO :: Datastore -> ([Metric] -> ([Metric], [Metric])) -> IO [Metric]
+withDatastoreMetricsIO :: Datastore -> (Datastore' -> ([a], Datastore')) -> IO [a]
 withDatastoreMetricsIO datastore action = atomically $ withDatastoreMetrics datastore action
 
-withDatastoreMetrics :: Datastore -> ([Metric] -> ([Metric], [Metric])) -> STM [Metric]
+withDatastoreMetrics :: Datastore -> (Datastore' -> ([a], Datastore')) -> STM [a]
 withDatastoreMetrics datastore action = do
     metrics <- takeTMVar datastore
-    undefined
-    --let (handledMetrics, unhandledMetrics) = action metrics
-    --putTMVar datastore unhandledMetrics
-    --return handledMetrics
+    -- Perform the action on the metrics, returning a tuple of handled, unhandled metrics
+    let (handledMetrics, unhandledMetrics) = action metrics
+    putTMVar datastore unhandledMetrics
+    return handledMetrics

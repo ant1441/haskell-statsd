@@ -9,21 +9,25 @@ import System.Log.Logger
 
 import Statsd.Config
 import Statsd.Datastore
+import Statsd.Flush
 import Statsd.Metrics
 import Statsd.Parser
 import Statsd.Utils
 
 reportError :: Handle -> String -> IO ()
-reportError = hPutStr
+reportError handle str = do
+    hPutStr handle str
+    errorM "statsd.listener" str
 
 connectionHandler :: Datastore -> Handle -> HostName -> PortNumber -> IO ()
 connectionHandler datastore handle hostname portNum = do
-    debugM "statsd" $ "Connection from " ++ hostname ++ "[" ++ show portNum ++ "]"
+    debugM "statsd.listener" $ "Connection from " ++ hostname ++ ":" ++ show portNum
     eitherMetrics <- metricProcessor handle
     case eitherMetrics of
         Left error -> reportError handle error
         Right metrics -> storeMetricsIO datastore metrics
     hClose handle
+    debugM "statsd.listener" $ "Disconnected " ++ hostname ++ ":" ++ show portNum
 
 sockHandler :: Datastore -> Socket -> IO ()
 sockHandler datastore sock = do
@@ -45,22 +49,30 @@ start datastore options = do
     configureLogging options
     l <- async $ startListner datastore options
     h <- async $ startHandler datastore options
+    debugM "statsd" "Started all threads"
     mapM_ wait [l, h]
 
 -- | Start the network listener, and pass it onto the socket handler
 startListner :: Datastore -> Options -> IO ()
 startListner datastore options = withSocketsDo $ do
     let portNum = port options
+
+    t <- myThreadId
+    labelThread t "metricListener"
+
     sock <- listenOn $ PortNumber $ fromInteger portNum
-    noticeM "statsd" $ "Listening on port " ++ show portNum
+    noticeM "statsd.listener" $ "Listening on port " ++ show portNum
     sockHandler datastore sock
 
 -- | Start the datastore handler
 startHandler :: Datastore -> Options -> IO ()
 startHandler datastore options = do
-    debugM "statsd" "Running datastore handler"
-    handledMetrics <- withDatastoreMetricsIO datastore (\m -> do
-        (m, []))
-    debugM "statsd" $ "Handled " ++ show (length handledMetrics) ++ " metrics."
+
+    t <- myThreadId
+    labelThread t "metricHandler"
+
+    debugM "statsd.handler" "Running datastore handler"
+    handledMetrics <- withDatastoreMetricsIO datastore flushMetrics
+    debugM "statsd.handler" $ "Handled " ++ show (length handledMetrics) ++ " metrics."
     threadDelay $ flushInterval options
     startHandler datastore options

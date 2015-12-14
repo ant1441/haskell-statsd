@@ -16,11 +16,14 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:
+
                        Statsd.Config,
+                       Statsd.Datastore,
+                       Statsd.Flush
                        Statsd.Metrics,
                        Statsd.Parser,
-                       Statsd.Datastore,
                        Statsd.Utils
+
   build-depends:
                        attoparsec,
                        base,

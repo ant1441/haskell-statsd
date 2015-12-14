@@ -1,9 +1,12 @@
 module Statsd.Utils where
 
 import Data.List (nubBy)
-import System.IO (stdout)
+import System.IO (stderr)
 import System.Log.Logger
+import System.Log.Formatter
 import System.Log.Handler.Simple (fileHandler, streamHandler)
+import System.Log.Handler (setFormatter)
+
 
 import Statsd.Config
 
@@ -23,7 +26,11 @@ sanitizeKeyName =  stripInvalidChars . replaceSpaceSlash . squashSpaces
 configureLogging options = do
     let level = logLevel options
         file  = logFile  options
-        stdoutLevel = if verbose options then DEBUG else INFO
-    fh <- fileHandler file level
-    sh <- streamHandler stdout stdoutLevel
+        stderrLevel = if verbose options then DEBUG else INFO
+        logFormat = "$time - $loggername [$pid:'$tid'] - $prio - $msg"
+    fh <- fileHandler file level >>= \lh -> return $
+        setFormatter lh (simpleLogFormatter logFormat)
+    sh <- streamHandler stderr stderrLevel >>= \lh -> return $
+        setFormatter lh (simpleLogFormatter logFormat)
+
     updateGlobalLogger "" (setLevel DEBUG . setHandlers [fh, sh])

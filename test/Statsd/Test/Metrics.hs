@@ -30,6 +30,7 @@ metricSpec =
                 clearGauges False [] `shouldBe` ([], [])
             it "clearGauges returns the given metrics untouched" $
                 clearCounter False singleGauge `shouldBe` (singleGauge, [])
+
         describe "when configured on" $ do
             describe "clearCounter" $ do
                 it "returns an empty list when given one" $
