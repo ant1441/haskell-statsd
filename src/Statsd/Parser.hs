@@ -23,11 +23,22 @@ import Data.ByteString.Char8 (ByteString)
 import Data.Maybe (fromMaybe, isNothing)
 import Prelude hiding (takeWhile, null)
 
-import Data.Conduit (Conduit)
-import Data.Conduit.Attoparsec (ParseError, conduitParserEither, PositionRange)
+import Control.Monad.Catch (MonadThrow)
+import Data.Conduit (Conduit, yield, (=$=))
+import qualified Data.Conduit.List as DCL (map)
+import Data.Conduit.Attoparsec (ParseError, conduitParserEither, PositionRange, conduitParser, sinkParser)
 
 import Statsd.Metrics (Metric(Metric), MetricType(..))
 
+metricConduit2 :: (Monad m, MonadThrow m) => Conduit ByteString m Metric
+metricConduit2 = do
+  firstMetric
+  conduitParser subsequentMetrics =$= DCL.map snd
+
+  where
+
+  firstMetric = yield =<< sinkParser partMetricParser
+  subsequentMetrics = separator >> partMetricParser
 
 metricConduit :: Monad m => Conduit ByteString m (Either ParseError (PositionRange, [Metric]))
 metricConduit = conduitParserEither metricParser
