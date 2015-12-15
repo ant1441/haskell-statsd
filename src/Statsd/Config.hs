@@ -33,9 +33,8 @@ optParser = Options
             <> metavar "INTERVAL"
             <> showDefault
             <> help "Number of microseconds to wait between flushes" )
-        <*> option auto
+        <*> strOption
             ( value ""
-            <> short 'p'
             <> long "prefixStats"
             <> metavar "PREFIX"
             <> help "The prefix to add to all stats" )
