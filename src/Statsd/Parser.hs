@@ -36,10 +36,7 @@ individualMetricConduit :: Monad m => Conduit ByteString m (Either ParseError (P
 individualMetricConduit = conduitParserEither individualMetricParser
 
 individualMetricParser :: Parser Metric
-individualMetricParser = do
-    singleMetric <- partMetricParser
-    maybeEndOfLine -- need EOL, not EOF between
-    return singleMetric
+individualMetricParser = partMetricParser <* maybeEndOfLine -- need EOL, not EOF between
 
 -- | Parse any number of metrics
 metricParser :: Parser [Metric]
