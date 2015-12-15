@@ -43,15 +43,10 @@ individualMetricParser = do
 
 -- | Parse any number of metrics
 metricParser :: Parser [Metric]
-metricParser = do
-    singleMetric <- partMetricParser
-    maybeEndOfLine -- need EOL, not EOF between
-    next <- peekChar
-    if isNothing next
-        then return [singleMetric] -- base case
-        else do
-            metrics <- metricParser
-            return $ singleMetric : metrics
+metricParser = partMetricParser `sepBy` separator
+
+separator :: Parser ()
+separator = void $ optional (char '\r') >> char '\n'
 
 -- <metric_name>:<value>|<type>|<extra>
 -- | Parse a single statsd metric, not taking the line break at the end.
