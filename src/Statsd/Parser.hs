@@ -15,8 +15,10 @@
 -- TODO Exports for test
 module Statsd.Parser (individualMetricConduit, metricParser) where
 
-import Control.Applicative ((<|>))
-import Data.Attoparsec.ByteString.Char8 ((<?>), char, choice, double, endOfInput, Parser, peekChar, string, takeWhile, option)
+import Control.Applicative ((<|>), optional)
+import Control.Monad (void)
+import Data.Attoparsec.Combinator (sepBy)
+import Data.Attoparsec.ByteString.Char8 ((<?>), char, choice, double, endOfInput, Parser, peekChar, string, takeWhile, endOfLine)
 import Data.ByteString.Char8 (ByteString)
 import Data.Maybe (fromMaybe, isNothing)
 import Prelude hiding (takeWhile, null)
@@ -61,7 +63,7 @@ partMetricParser = do
     pipe
     metricType <- parseType
     maybeExtra <- case metricType of
-      Counter -> option Nothing $ pipe >> at >> Just <$> double
+      Counter -> optional $ pipe >> at >> double
       _       -> return Nothing
     return $ Metric metricType name value maybeExtra
 
