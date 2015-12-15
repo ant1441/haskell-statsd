@@ -16,7 +16,7 @@
 module Statsd.Parser (individualMetricConduit, metricParser) where
 
 import Control.Applicative ((<|>))
-import Data.Attoparsec.ByteString.Char8 ((<?>), char, choice, double, endOfInput, Parser, peekChar, string, takeWhile)
+import Data.Attoparsec.ByteString.Char8 ((<?>), char, choice, double, endOfInput, Parser, peekChar, string, takeWhile, option)
 import Data.ByteString.Char8 (ByteString)
 import Data.Maybe (fromMaybe, isNothing)
 import Prelude hiding (takeWhile, null)
@@ -60,19 +60,10 @@ partMetricParser = do
     value <- double
     pipe
     metricType <- parseType
-    -- Might be a pipe and an extra, or a EOL
-    next <- peekChar
-    if fromMaybe ' ' next /= '|'
-        then return $ Metric metricType name value Nothing
-        else
-            if metricType /= Counter
-                -- Extra data only on a counter
-                then fail "extra data on non counter"
-                else do
-                    pipe
-                    at
-                    extra <- double
-                    return $ Metric metricType name value (Just extra)
+    maybeExtra <- case metricType of
+      Counter -> option Nothing $ pipe >> at >> Just <$> double
+      _       -> return Nothing
+    return $ Metric metricType name value maybeExtra
 
 -- | Parse a statsd metric type
 parseType :: Parser MetricType
