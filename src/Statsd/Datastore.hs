@@ -3,8 +3,16 @@ module Statsd.Datastore where
 
 import Control.Concurrent.STM (atomically, newTMVar, putTMVar, takeTMVar, STM, TMVar)
 import Control.Lens
+import qualified Data.Map.Strict as Map
 
 import Statsd.Metrics
+
+-- * Collection types
+type Gauges     = Map.Map Name Metric
+type Counters   = Map.Map Name Metric
+type Timers     = Map.Map Name Metric
+type Histograms = Map.Map Name Metric
+type Meters     = Map.Map Name Metric
 
 data Datastore' = Datastore' { _gauges :: Gauges,
                                _counters :: Counters,
@@ -17,7 +25,7 @@ makeLenses ''Datastore'
 type Datastore = TMVar Datastore'
 
 newDatastore :: Datastore'
-newDatastore = Datastore' [] [] [] [] []
+newDatastore = Datastore' Map.empty Map.empty Map.empty Map.empty Map.empty
 
 newDatastoreSTM :: STM Datastore
 newDatastoreSTM = newTMVar newDatastore
@@ -34,11 +42,11 @@ storeMetric metric = func metric
             Histogram   -> storeHistogram
             Meter       -> storeMeter
 
-storeGauge m = over gauges (m:)
-storeCounter m = over counters (m:)
-storeTimer m = over timers (m:)
-storeHistogram m = over histograms (m:)
-storeMeter m = over meters (m:)
+storeGauge m     = over gauges     $ Map.insertWith (error "storeGauge TODO") (name m) m
+storeCounter m   = over counters   $ Map.insertWith addCounter (name m) m
+storeTimer m     = over timers     $ Map.insertWith (error "storeTimer TODO") (name m) m
+storeHistogram m = over histograms $ Map.insertWith (error "storeHistogram TODO") (name m) m
+storeMeter m     = over meters     $ Map.insertWith (error "storeMeter TODO") (name m) m
 
 storeMetricSTM :: Datastore -> Metric -> STM ()
 storeMetricSTM datastore metrics = do
@@ -65,5 +73,12 @@ withDatastoreMetrics datastore action = do
     putTMVar datastore unhandledMetrics
     return handledMetrics
 
-toList :: Datastore' -> [Metric]
-toList datastore = concatMap (datastore ^.) [gauges, counters, timers, histograms, meters]
+datastoreMap :: Datastore' -> (Map.Map Name Metric -> a) -> [a]
+datastoreMap datastore f = map (f . (datastore ^.)) [gauges, counters, timers, histograms, meters]
+
+length :: Datastore' -> Int
+length datastore = sum $ datastoreMap datastore Map.size
+
+-- * Map helpers
+metricSingleton :: Metric -> Map.Map Name Metric
+metricSingleton metric = Map.singleton (name metric) metric

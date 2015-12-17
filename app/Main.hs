@@ -9,7 +9,8 @@ import GHC.Conc (labelThread)
 import System.Log.Logger
 
 import Statsd.Config
-import Statsd.Datastore
+import Statsd.Datastore hiding (length)
+import qualified Statsd.Datastore as DS (length)
 import Statsd.Flush
 import Statsd.Metrics
 import Statsd.Parser
@@ -50,7 +51,7 @@ startHandler :: Datastore -> Options -> IO ()
 startHandler datastore options = do
     debugM "statsd.handler" $ "Running datastore handler (delaying: " ++ show (flushInterval options) ++ ")"
     handledMetrics <- withDatastoreMetricsIO datastore flushMetrics
-    infoM "statsd.handler" $ "Handled " ++ show (length $ toList handledMetrics) ++ " metrics."
+    infoM "statsd.handler" $ "Handled " ++ show (DS.length handledMetrics) ++ " metrics."
     threadDelay $ flushInterval options
     startHandler datastore options
 

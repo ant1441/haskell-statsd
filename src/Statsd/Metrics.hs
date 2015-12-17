@@ -12,11 +12,13 @@
 module Statsd.Metrics where
 --module Statsd.Metrics (Metric(Metric), MetricType(..), Gauges, Counters, Timers, Histograms, Meters) where
 
-import Data.ByteString.Char8 (ByteString)
+import Data.ByteString.Char8 (ByteString, unpack)
+import Data.Maybe
 
 type Name       = ByteString
 type Value      = Double
-type SampleRate = Maybe Double
+type ExtraData  = SampleRate
+type SampleRate  = Double
 
 -- | StatsD metrics, will be stored with the @value@ stored against the @name@.
 -- They are generally of the form @\<metric name\>:\<value\>|c[|\<sample rate\>]@ (see 'Statsd.Parser').
@@ -25,7 +27,7 @@ type SampleRate = Maybe Double
 data Metric = Metric { metricType :: MetricType,
                        name       :: Name,
                        value      :: Value,
-                       extraData  :: SampleRate }
+                       extraData  :: Maybe ExtraData }
     deriving (Eq, Show)
 
 data MetricType =
@@ -47,17 +49,21 @@ data MetricType =
                     -- May be thought of as an increment only timer.
     deriving (Eq, Show, Enum)
 
--- * Helpers
-type Gauges = [Metric]
-type Counters = [Metric]
-type Timers = [Metric]
-type Histograms = [Metric]
-type Meters = [Metric]
-
 -- | Helper function to get the sample for a Counter
 sampleRate :: Metric -> SampleRate
-sampleRate (Metric Counter _ _ e) = e
-sampleRate _ = Nothing
+sampleRate (Metric Counter _ _ (Just e)) = e
+sampleRate (Metric Counter _ _ Nothing) = 1.0
+sampleRate _ = error "Trying to find sampleRate on a non Counter"
+
+-- * Functions to join metrics
+addCounter :: Metric -> Metric -> Metric
+addCounter (Metric Counter aName aVal aExtra) (Metric Counter bName bVal bExtra)
+    | aName /= bName = error $ "Cannot merge two counters with different names ('" ++ unpack aName ++ "', '" ++ unpack bName ++ "')"
+    | otherwise = Metric Counter aName val (Just 1.0)
+        where val = aVal / aSample + bVal / bSample
+              aSample = fromMaybe 1.0 aExtra
+              bSample = fromMaybe 1.0 bExtra
+addCounter _ _ = error "addCounter call on non Counter Metric"
 
 -- * Functions to clear a list of each Metric
 
@@ -65,14 +71,14 @@ sampleRate _ = Nothing
 -- Look at break, span (Prelude), partition (Data.List)
 
 -- | Clear the counters
-clearCounter :: Bool -> Counters -> (Counters, Counters)
-clearCounter False counters = (counters, [])
-clearCounter True counters = ([], [])
+--clearCounter :: Bool -> Counters -> (Counters, Counters)
+--clearCounter False counters = (counters, [])
+--clearCounter True counters = ([], [])
 
 -- | Clear the timers
-clearTimers :: Bool -> Timers -> (Timers, Timers)
-clearTimers False timers = (timers, [])
-clearTimers True timers = ([], [])
+--clearTimers :: Bool -> Timers -> (Timers, Timers)
+--clearTimers False timers = (timers, [])
+--clearTimers True timers = ([], [])
 
 -- | Clear the sets
 {- TYPE?
@@ -82,6 +88,6 @@ clearSets True sets = ([], [])
 -}
 
 -- | Clear the guages
-clearGauges :: Bool -> Gauges -> (Gauges, Gauges)
-clearGauges False gauges = (gauges, [])
-clearGauges True gauges = ([], [])
+--clearGauges :: Bool -> Gauges -> (Gauges, Gauges)
+--clearGauges False gauges = (gauges, [])
+--clearGauges True gauges = ([], [])
