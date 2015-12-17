@@ -64,6 +64,7 @@ test-suite statsd-test
   main-is:             Spec.hs
   other-modules:
                        Statsd.Test.Datastore,
+                       Statsd.Test.Metrics,
                        Statsd.Test.Parser,
                        Statsd.Test.Utils
   build-depends:
