@@ -5,7 +5,6 @@ import Test.Hspec
 import Test.Hspec.Attoparsec
 
 import Control.Applicative
-import Control.Exception
 import Control.Monad.Writer
 import Control.Monad.Catch.Pure
 import Data.Attoparsec.Combinator (endOfInput)
@@ -13,7 +12,6 @@ import Data.ByteString.Char8 (ByteString)
 import Data.Conduit
 import Data.Either
 import qualified Data.Conduit.List as DCL
-import Data.Void
 
 import Statsd.Parser
 import Statsd.Metrics
