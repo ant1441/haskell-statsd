@@ -15,17 +15,30 @@
 -- TODO Exports for test
 module Statsd.Parser (individualMetricConduit, metricParser) where
 
-import Control.Applicative ((<|>))
-import Data.Attoparsec.ByteString.Char8 ((<?>), char, choice, double, endOfInput, Parser, peekChar, string, takeWhile)
+import Control.Applicative ((<|>), optional)
+import Control.Monad (void)
+import Data.Attoparsec.Combinator (sepBy)
+import Data.Attoparsec.ByteString.Char8 ((<?>), char, choice, double, endOfInput, Parser, peekChar, string, takeWhile, endOfLine)
 import Data.ByteString.Char8 (ByteString)
 import Data.Maybe (fromMaybe, isNothing)
 import Prelude hiding (takeWhile, null)
 
-import Data.Conduit (Conduit)
-import Data.Conduit.Attoparsec (ParseError, conduitParserEither, PositionRange)
+import Control.Monad.Catch (MonadThrow)
+import Data.Conduit (Conduit, yield, (=$=))
+import qualified Data.Conduit.List as DCL (map)
+import Data.Conduit.Attoparsec (ParseError, conduitParserEither, PositionRange, conduitParser, sinkParser)
 
 import Statsd.Metrics (Metric(Metric), MetricType(..))
 
+metricConduit2 :: (Monad m, MonadThrow m) => Conduit ByteString m Metric
+metricConduit2 = do
+  firstMetric
+  conduitParser subsequentMetrics =$= DCL.map snd
+
+  where
+
+  firstMetric = yield =<< sinkParser partMetricParser
+  subsequentMetrics = separator >> partMetricParser
 
 metricConduit :: Monad m => Conduit ByteString m (Either ParseError (PositionRange, [Metric]))
 metricConduit = conduitParserEither metricParser
@@ -34,22 +47,14 @@ individualMetricConduit :: Monad m => Conduit ByteString m (Either ParseError (P
 individualMetricConduit = conduitParserEither individualMetricParser
 
 individualMetricParser :: Parser Metric
-individualMetricParser = do
-    singleMetric <- partMetricParser
-    maybeEndOfLine -- need EOL, not EOF between
-    return singleMetric
+individualMetricParser = partMetricParser <* maybeEndOfLine -- need EOL, not EOF between
 
 -- | Parse any number of metrics
 metricParser :: Parser [Metric]
-metricParser = do
-    singleMetric <- partMetricParser
-    maybeEndOfLine -- need EOL, not EOF between
-    next <- peekChar
-    if isNothing next
-        then return [singleMetric] -- base case
-        else do
-            metrics <- metricParser
-            return $ singleMetric : metrics
+metricParser = partMetricParser `sepBy` separator
+
+separator :: Parser ()
+separator = void $ optional (char '\r') >> char '\n'
 
 -- <metric_name>:<value>|<type>|<extra>
 -- | Parse a single statsd metric, not taking the line break at the end.
@@ -60,19 +65,10 @@ partMetricParser = do
     value <- double
     pipe
     metricType <- parseType
-    -- Might be a pipe and an extra, or a EOL
-    next <- peekChar
-    if fromMaybe ' ' next /= '|'
-        then return $ Metric metricType name value Nothing
-        else
-            if metricType /= Counter
-                -- Extra data only on a counter
-                then fail "extra data on non counter"
-                else do
-                    pipe
-                    at
-                    extra <- double
-                    return $ Metric metricType name value (Just extra)
+    maybeExtra <- case metricType of
+      Counter -> optional $ pipe >> at >> double
+      _       -> return Nothing
+    return $ Metric metricType name value maybeExtra
 
 -- | Parse a statsd metric type
 parseType :: Parser MetricType
