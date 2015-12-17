@@ -9,7 +9,7 @@ import Data.Version (showVersion)
 
 
 data Options = Options
-    { port          :: Integer,
+    { port          :: Int,
       flushInterval :: Int,
       prefixStats   :: String,
       logFile       :: FilePath,
