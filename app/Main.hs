@@ -50,7 +50,7 @@ startHandler :: Datastore -> Options -> IO ()
 startHandler datastore options = do
     debugM "statsd.handler" $ "Running datastore handler (delaying: " ++ show (flushInterval options) ++ ")"
     handledMetrics <- withDatastoreMetricsIO datastore flushMetrics
-    infoM "statsd.handler" $ "Handled " ++ show (length $ datastoreToList handledMetrics) ++ " metrics."
+    infoM "statsd.handler" $ "Handled " ++ show (length $ toList handledMetrics) ++ " metrics."
     threadDelay $ flushInterval options
     startHandler datastore options
 

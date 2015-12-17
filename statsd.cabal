@@ -34,6 +34,7 @@ library
                        exceptions,
                        filepath,
                        hslogger,
+                       lens,
                        network,
                        optparse-applicative,
                        stm
@@ -73,6 +74,7 @@ test-suite statsd-test
                        bytestring,
                        hspec,
                        hspec-attoparsec,
+                       lens,
                        QuickCheck,
                        statsd,
                        stm

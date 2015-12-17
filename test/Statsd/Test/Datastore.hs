@@ -7,6 +7,7 @@ import Test.QuickCheck
 import Test.QuickCheck.Monadic
 
 import Control.Concurrent.STM (atomically, takeTMVar, STM)
+import Control.Lens
 
 import Statsd.Metrics
 import Statsd.Datastore
@@ -25,6 +26,8 @@ datastoreSpec = do
                 storeMetric singleHistogram newDatastore `shouldBe` filledDatastoreH
             it "returns a filled datastore when given a single meter" $
                 storeMetric singleMeter newDatastore `shouldBe` filledDatastoreM
+            it "returns a datastore with a single metric when given the same counter twice" $
+                toList (storeMetric singleCounter (storeMetric singleCounter newDatastore)) `shouldBe` [Metric Counter "counter.name" 2 (Just 1.0)]
 
 
 -- Vars
@@ -48,19 +51,19 @@ allMetrics :: [Metric]
 allMetrics = [singleGauge, singleCounter, singleTimer, singleHistogram, singleMeter]
 
 filledDatastoreG :: Datastore'
-filledDatastoreG = ([singleGauge], [], [], [], [])
+filledDatastoreG = newDatastore & gauges .~ [singleGauge]
 
 filledDatastoreC :: Datastore'
-filledDatastoreC = ([], [singleCounter], [], [], [])
+filledDatastoreC = newDatastore & counters .~ [singleCounter]
 
 filledDatastoreT :: Datastore'
-filledDatastoreT = ([], [], [singleTimer], [], [])
+filledDatastoreT = newDatastore & timers .~ [singleTimer]
 
 filledDatastoreH :: Datastore'
-filledDatastoreH = ([], [], [], [singleHistogram], [])
+filledDatastoreH = newDatastore & histograms .~ [singleHistogram]
 
 filledDatastoreM :: Datastore'
-filledDatastoreM = ([], [], [], [], [singleMeter])
+filledDatastoreM = newDatastore & meters .~ [singleMeter]
 
 filledDatastoreA :: Datastore'
-filledDatastoreA = ([singleGauge], [singleCounter], [singleTimer], [singleHistogram], [singleMeter])
+filledDatastoreA = Datastore' [singleGauge] [singleCounter] [singleTimer] [singleHistogram] [singleMeter]

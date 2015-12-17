@@ -1,15 +1,23 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Statsd.Datastore where
 
 import Control.Concurrent.STM (atomically, newTMVar, putTMVar, takeTMVar, STM, TMVar)
+import Control.Lens
 
 import Statsd.Metrics
 
-type Datastore' = (Gauges, Counters, Timers, Histograms, Meters)
+data Datastore' = Datastore' { _gauges :: Gauges,
+                               _counters :: Counters,
+                               _timers :: Timers,
+                               _histograms :: Histograms,
+                               _meters :: Meters }
+    deriving (Show, Eq)
+makeLenses ''Datastore'
+
 type Datastore = TMVar Datastore'
 
 newDatastore :: Datastore'
-newDatastore = ([], [], [], [], [])
+newDatastore = Datastore' [] [] [] [] []
 
 newDatastoreSTM :: STM Datastore
 newDatastoreSTM = newTMVar newDatastore
@@ -17,14 +25,20 @@ newDatastoreSTM = newTMVar newDatastore
 newDatastoreIO :: IO Datastore
 newDatastoreIO = atomically newDatastoreSTM
 
-storeMetric :: Metric -> Datastore' -> Datastore'
-storeMetric m (gauges, counters, timers, histograms, meters) =
-    case metricType m of
-        Gauge       -> (m:gauges, counters, timers, histograms, meters)
-        Counter     -> (gauges, m:counters, timers, histograms, meters)
-        Timer       -> (gauges, counters, m:timers, histograms, meters)
-        Histogram   -> (gauges, counters, timers, m:histograms, meters)
-        Meter       -> (gauges, counters, timers, histograms, m:meters)
+storeMetric, storeGauge, storeCounter, storeTimer, storeHistogram, storeMeter :: Metric -> Datastore' -> Datastore'
+storeMetric metric = func metric
+    where func = case metricType metric of
+            Gauge       -> storeGauge
+            Counter     -> storeCounter
+            Timer       -> storeTimer
+            Histogram   -> storeHistogram
+            Meter       -> storeMeter
+
+storeGauge m = over gauges (m:)
+storeCounter m = over counters (m:)
+storeTimer m = over timers (m:)
+storeHistogram m = over histograms (m:)
+storeMeter m = over meters (m:)
 
 storeMetricSTM :: Datastore -> Metric -> STM ()
 storeMetricSTM datastore metrics = do
@@ -51,5 +65,5 @@ withDatastoreMetrics datastore action = do
     putTMVar datastore unhandledMetrics
     return handledMetrics
 
-datastoreToList :: Datastore' -> [Metric]
-datastoreToList (g, c, t, h, m) = g ++ c ++ t ++ h ++ m
+toList :: Datastore' -> [Metric]
+toList datastore = concatMap (datastore ^.) [gauges, counters, timers, histograms, meters]
