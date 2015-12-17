@@ -8,6 +8,7 @@ import Control.Applicative
 import Control.Monad.Writer
 import Control.Monad.Catch.Pure
 import Data.Attoparsec.Combinator (endOfInput)
+import Data.Attoparsec.ByteString (Parser)
 import Data.ByteString.Char8 (ByteString)
 import Data.Conduit
 import Data.Either
@@ -16,6 +17,7 @@ import qualified Data.Conduit.List as DCL
 import Statsd.Parser
 import Statsd.Metrics
 
+fullParser :: Parser [Metric]
 fullParser = metricParser <* endOfInput
 
 parserSpec :: Spec
