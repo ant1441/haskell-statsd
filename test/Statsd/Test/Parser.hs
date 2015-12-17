@@ -116,3 +116,7 @@ parserSpec = do
         it "can handle a parse error even before a newline" $
             ["value:1|cc"] `shouldYieldBeforeThrowing`
             [Metric Counter "value" 1 Nothing]
+
+        it "considers a trailing newline as a parse error (but parses things anyway)" $
+            ["value:1|c\n"] `shouldYieldBeforeThrowing`
+            [Metric Counter "value" 1 Nothing]
