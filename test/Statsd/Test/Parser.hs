@@ -82,7 +82,8 @@ parserSpec = do
                 = useTheConduit input `shouldBe` (expected, False)
 
           it "returns a metric from a single packet" $
-              ["value:1|c"] `shouldYieldCleanly` [Metric Counter "value" 1 Nothing]
+              ["value:1|c"] `shouldYieldCleanly`
+              [Metric Counter "value" 1 Nothing]
 
           it "returns two metrics from a single packet" $
               ["value:1|c\nanotherval:2|c"] `shouldYieldCleanly`
@@ -104,7 +105,8 @@ parserSpec = do
                   = useTheConduit input `shouldBe` (expected, True)
 
           it "returns values until it finds an parse error" $
-              ["value:1|c\nanotherval:2|x\nyetanotherval:3|c"] `shouldThrowAfterYielding`
+              ["value:1|c\nanotherval:2|x\nyetanotherval:3|c"]
+              `shouldThrowAfterYielding`
               [Metric Counter "value" 1 Nothing]
 
           it "returns no metrics from no packets" $
