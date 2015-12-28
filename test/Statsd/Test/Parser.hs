@@ -97,26 +97,26 @@ parserSpec = do
             ["value:1|c|@5", "0"] `shouldYieldCleanly`
             [Metric Counter "value" 1 (Just 50)]
 
-        let shouldYieldBeforeThrowing input expected
+        let shouldThrowAfterYielding input expected
                 = useTheConduit input `shouldBe` (expected, True)
 
         it "returns values until it finds an parse error" $
-            ["value:1|c\nanotherval:2|x\nyetanotherval:3|c"] `shouldYieldBeforeThrowing`
+            ["value:1|c\nanotherval:2|x\nyetanotherval:3|c"] `shouldThrowAfterYielding`
             [Metric Counter "value" 1 Nothing]
 
         it "returns no metrics from no packets" $
-            [] `shouldYieldBeforeThrowing` []
+            [] `shouldThrowAfterYielding` []
 
         it "returns no metrics from an empty packet" $
-            [""] `shouldYieldBeforeThrowing` []
+            [""] `shouldThrowAfterYielding` []
 
         it "returns no metrics from some empty packets" $
-            ["", ""] `shouldYieldBeforeThrowing` []
+            ["", ""] `shouldThrowAfterYielding` []
 
         it "can handle a parse error even before a newline" $
-            ["value:1|cc"] `shouldYieldBeforeThrowing`
+            ["value:1|cc"] `shouldThrowAfterYielding`
             [Metric Counter "value" 1 Nothing]
 
         it "considers a trailing newline as a parse error (but parses things anyway)" $
-            ["value:1|c\n"] `shouldYieldBeforeThrowing`
+            ["value:1|c\n"] `shouldThrowAfterYielding`
             [Metric Counter "value" 1 Nothing]
