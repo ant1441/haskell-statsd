@@ -36,9 +36,11 @@ library
                        filepath,
                        hslogger,
                        lens,
+                       mtl,
                        network,
                        optparse-applicative,
-                       stm
+                       stm,
+                       void
   other-modules:       Paths_statsd
   default-language:    Haskell2010
 
@@ -73,10 +75,13 @@ test-suite statsd-test
                        attoparsec,
                        base,
                        bytestring,
+                       conduit,
                        containers,
+                       exceptions,
                        hspec,
                        hspec-attoparsec,
                        lens,
+                       mtl,
                        QuickCheck,
                        statsd,
                        stm

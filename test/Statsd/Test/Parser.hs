@@ -5,12 +5,19 @@ import Test.Hspec
 import Test.Hspec.Attoparsec
 
 import Control.Applicative
+import Control.Monad.Writer
+import Control.Monad.Catch.Pure
 import Data.Attoparsec.Combinator (endOfInput)
+import Data.Attoparsec.ByteString (Parser)
 import Data.ByteString.Char8 (ByteString)
+import Data.Conduit
+import Data.Either
+import qualified Data.Conduit.List as DCL
 
 import Statsd.Parser
 import Statsd.Metrics
 
+fullParser :: Parser [Metric]
 fullParser = metricParser <* endOfInput
 
 parserSpec :: Spec
@@ -58,3 +65,63 @@ parserSpec = do
             fullParser `shouldFailOn` ("value:a|c" :: ByteString)
         it "fails with extra data not for a counter" $
             fullParser `shouldFailOn` ("value:0|g|@1" :: ByteString)
+
+    describe "metric parser - conduit tests" $ do
+        let useTheConduit :: [ByteString] -> ([Metric], Bool)
+            useTheConduit input = let
+              (exceptionOrUnit, output)
+                    = runWriter $ runCatchT $ runConduit
+                        $  DCL.sourceList input
+                       =$= metricConduit2
+                       =$= DCL.mapM_ (\metric -> tell [metric])
+
+              in (output, isLeft exceptionOrUnit)
+
+        describe "no exception expected" $ do
+          let shouldYieldCleanly input expected
+                = useTheConduit input `shouldBe` (expected, False)
+
+          it "returns a metric from a single packet" $
+              ["value:1|c"] `shouldYieldCleanly`
+              [Metric Counter "value" 1 Nothing]
+
+          it "returns two metrics from a single packet" $
+              ["value:1|c\nanotherval:2|c"] `shouldYieldCleanly`
+              [ Metric Counter "value"      1 Nothing
+              , Metric Counter "anotherval" 2 Nothing
+              ]
+
+          it "returns a metric split across two packets" $
+              ["valu", "e:1|c"] `shouldYieldCleanly`
+              [Metric Counter "value" 1 Nothing]
+
+          it "doesn't stop parsing at the end of a packet even if it could do so" $
+              ["value:1|c|@5", "0"] `shouldYieldCleanly`
+              [Metric Counter "value" 1 (Just 50)]
+
+        describe "parse exception expected" $ do
+
+          let shouldThrowAfterYielding input expected
+                  = useTheConduit input `shouldBe` (expected, True)
+
+          it "returns values until it finds an parse error" $
+              ["value:1|c\nanotherval:2|x\nyetanotherval:3|c"]
+              `shouldThrowAfterYielding`
+              [Metric Counter "value" 1 Nothing]
+
+          it "returns no metrics from no packets" $
+              [] `shouldThrowAfterYielding` []
+
+          it "returns no metrics from an empty packet" $
+              [""] `shouldThrowAfterYielding` []
+
+          it "returns no metrics from some empty packets" $
+              ["", ""] `shouldThrowAfterYielding` []
+
+          it "can handle a parse error even before a newline" $
+              ["value:1|cc"] `shouldThrowAfterYielding`
+              [Metric Counter "value" 1 Nothing]
+
+          it "considers a trailing newline as a parse error (but parses things anyway)" $
+              ["value:1|c\n"] `shouldThrowAfterYielding`
+              [Metric Counter "value" 1 Nothing]

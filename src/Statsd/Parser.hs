@@ -13,7 +13,7 @@
 
 --module Statsd.Parser (individualMetricConduit) where
 -- TODO Exports for test
-module Statsd.Parser (individualMetricConduit, metricParser) where
+module Statsd.Parser (individualMetricConduit, metricParser, metricConduit2) where
 
 import Control.Applicative ((<|>), optional)
 import Control.Monad (void)
